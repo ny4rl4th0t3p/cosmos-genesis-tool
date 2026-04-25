@@ -1,0 +1,69 @@
+chain:
+  id: examplechain-1
+  address_prefix: ex
+  initial_height: 1
+  max_validators: 100
+  blocks_per_year: 5256000
+  unbonding_time_seconds: 1814400
+  min_commission_rate: "0.03"
+  historical_entries: 10000
+  max_entries: 7
+
+default_bond_denom: utoken
+
+app:
+  version: 1.0.0
+  name: examplechaind
+  genesis_time: 1700000000
+
+slashing:
+  signed_blocks_window: 20000
+  min_signed_per_window: "0.50"
+  downtime_jail_duration_seconds: 600
+  slash_fraction_double_sign: "0.05"
+  slash_fraction_downtime: "0.0001"
+
+gov:
+  min_deposit_amount: 1000000000
+  voting_period: "432000s"
+  expedited_min_deposit_amount: 5000000000
+  expedited_voting_period: "172800s"
+
+denom:
+  base: utoken
+  display: TOKEN
+  description: "The native staking token of Example Chain"
+  symbol: TOKEN
+  exponent: 6
+  aliases: [microtoken]
+
+claims:
+  file_name: /path/to/claims.csv
+  vesting:
+    end_date: 1800000000
+
+grants:
+  file_name: /path/to/grants.csv
+  vesting:
+    start_date: 1700000000
+    end_date: 1900000000
+
+accounts:
+  total_supply: 500000000000000
+  file_name: /path/to/accounts.csv
+  remainder_allowlist:
+    - ex1l5zzknpjw53ph95maw5tc0c79776wcfnrs067w
+    - ex1jpkj90qwdcx9dfrdaacce0kfvzdufp4rn6yfl7
+
+validators:
+  gentx_dir: /path/to/gentx
+
+# Extra module accounts beyond the standard Cosmos SDK set.
+# Remove this section if your chain has no custom modules.
+modules:
+  extra:
+    - name: mymodule
+      permissions: [minter, burner]
+
+genesis:
+  output: /path/to/output/genesis.json
