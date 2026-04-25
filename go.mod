@@ -1,6 +1,6 @@
 module github.com/ny4rl4th0t3p/cosmos-genesis-tool
 
-go 1.26.2
+go 1.25
 
 require (
 	cosmossdk.io/core v0.11.0

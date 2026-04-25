@@ -1,0 +1,5 @@
+services:
+  smoke-test:
+    build:
+      context: ../..
+      dockerfile: tests/smoke/Dockerfile

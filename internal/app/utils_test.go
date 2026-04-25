@@ -389,7 +389,7 @@ func TestLoadGenesis_ReadsStateAndMetadata(t *testing.T) {
 }
 
 func TestLoadGenesis_NonExistentFile_ReturnsError(t *testing.T) {
-	_, _, _, _, err := LoadGenesis("/nonexistent/genesis.json")
+	_, _, _, _, err := LoadGenesis("/nonexistent/genesis.json") //nolint:dogsled // only error matters here
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read genesis file")
 }

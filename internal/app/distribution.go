@@ -68,7 +68,8 @@ func (asm StateManager) setDistribution(appGenState map[string]json.RawMessage, 
 					Height:         0,
 				},
 			})
-			historicalRewards[len(historicalRewards)-1].Rewards.ReferenceCount-- // each new delegator moves the reference to a new period, releasing the previous one
+			// each new delegator moves the reference to a new period, releasing the previous one
+			historicalRewards[len(historicalRewards)-1].Rewards.ReferenceCount--
 			historicalRewards = append(historicalRewards, distributiontypes.ValidatorHistoricalRewardsRecord{
 				ValidatorAddress: validators[i].OperatorAddress(),
 				Period:           lastPeriod,

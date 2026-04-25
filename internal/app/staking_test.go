@@ -202,5 +202,5 @@ func TestSetStakingState_GenutilCleared(t *testing.T) {
 	appGenState["genutil"] = json.RawMessage(`{"gen_txs":["original"]}`)
 	require.NoError(t, asm.setStakingState(appGenState, nil, nil))
 
-	assert.Equal(t, json.RawMessage(`{"gen_txs":[]}`), appGenState["genutil"])
+	assert.JSONEq(t, `{"gen_txs":[]}`, string(appGenState["genutil"]))
 }
