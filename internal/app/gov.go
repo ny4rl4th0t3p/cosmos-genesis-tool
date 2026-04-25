@@ -15,7 +15,8 @@ func (asm StateManager) fixGovernanceParameters(appGenState map[string]json.RawM
 	var govGenState govv1.GenesisState
 	return updateModuleState(asm.encodingConfig.Codec, appGenState, "gov", &govGenState, func() error {
 		if govGenState.Params == nil {
-			govGenState.Params = new(govv1.DefaultParams())
+			defaults := govv1.DefaultParams()
+			govGenState.Params = &defaults
 		}
 		denom := viper.GetString("default_bond_denom")
 		if v := viper.GetInt64("gov.min_deposit_amount"); v > 0 {

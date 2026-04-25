@@ -42,7 +42,7 @@ The tool runs these steps in order:
 
 ## Prerequisites
 
-- Go 1.26+
+- Go 1.25+
 - A chain binary (e.g. `gaiad`) to produce the baseline genesis and gentxs
 
 ---
