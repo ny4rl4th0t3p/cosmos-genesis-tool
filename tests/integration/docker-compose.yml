@@ -1,0 +1,5 @@
+services:
+  integration-test:
+    build:
+      context: ../..
+      dockerfile: tests/integration/Dockerfile
