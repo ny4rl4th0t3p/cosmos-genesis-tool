@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"cosmossdk.io/math"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/spf13/viper"
@@ -97,6 +98,71 @@ func TestSetDistribution_WithDelegations_AddsExtraDelegatorInfos(t *testing.T) {
 	}
 	assert.Contains(t, addresses, v.DelegatorAddress())
 	assert.Contains(t, addresses, delegatorAddr)
+}
+
+func TestSetDistribution_CommunityPool_SetsFeepoolAndBank(t *testing.T) {
+	const poolAmt = int64(1_000_000)
+	viper.Set("distribution.community_pool_amount", poolAmt)
+	viper.Set("chain.address_prefix", testHRP)
+	viper.Set("default_bond_denom", "uatom")
+	t.Cleanup(func() {
+		viper.Set("distribution.community_pool_amount", nil)
+		viper.Set("chain.address_prefix", nil)
+		viper.Set("default_bond_denom", nil)
+	})
+
+	ec := encoding.NewEncodingConfig()
+	asm := StateManager{
+		encodingConfig:      ec,
+		validatorRepository: stubValidatorRepo{},
+	}
+
+	bankState := banktypes.DefaultGenesisState()
+	bankStateBz, err := ec.Codec.MarshalJSON(bankState)
+	require.NoError(t, err)
+	appGenState := map[string]json.RawMessage{"bank": bankStateBz}
+
+	require.NoError(t, asm.setDistribution(appGenState, nil))
+
+	var ds distributiontypes.GenesisState
+	require.NoError(t, ec.Codec.UnmarshalJSON(appGenState["distribution"], &ds))
+	require.Len(t, ds.FeePool.CommunityPool, 1)
+	assert.Equal(t, "uatom", ds.FeePool.CommunityPool[0].Denom)
+	assert.Equal(t, math.LegacyNewDec(poolAmt), ds.FeePool.CommunityPool[0].Amount)
+
+	var bs banktypes.GenesisState
+	require.NoError(t, ec.Codec.UnmarshalJSON(appGenState["bank"], &bs))
+	assert.Equal(t, math.NewInt(poolAmt), bs.Supply.AmountOf("uatom"))
+
+	distAddr, err := moduleAddress(testHRP, "distribution")
+	require.NoError(t, err)
+	var distBalance math.Int
+	for _, b := range bs.Balances {
+		if b.Address == distAddr {
+			distBalance = b.Coins.AmountOf("uatom")
+		}
+	}
+	assert.Equal(t, math.NewInt(poolAmt), distBalance)
+}
+
+func TestSetDistribution_CommunityPool_Absent_BankUnchanged(t *testing.T) {
+	asm := distributionStateManager(t, nil, nil)
+
+	ec := encoding.NewEncodingConfig()
+	bankState := banktypes.DefaultGenesisState()
+	bankStateBz, err := ec.Codec.MarshalJSON(bankState)
+	require.NoError(t, err)
+	appGenState := map[string]json.RawMessage{"bank": bankStateBz}
+
+	require.NoError(t, asm.setDistribution(appGenState, nil))
+
+	var ds distributiontypes.GenesisState
+	require.NoError(t, ec.Codec.UnmarshalJSON(appGenState["distribution"], &ds))
+	assert.Empty(t, ds.FeePool.CommunityPool)
+
+	var bs banktypes.GenesisState
+	require.NoError(t, ec.Codec.UnmarshalJSON(appGenState["bank"], &bs))
+	assert.True(t, bs.Supply.IsZero())
 }
 
 func TestSetDistribution_HistoricalRewardsReferenceCount(t *testing.T) {

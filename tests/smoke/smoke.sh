@@ -21,13 +21,14 @@ CLAIM1_BONDED=$(( CLAIM1_AMOUNT - NON_STAKED_PORTION ))   # 900000
 CLAIM1_LIQUID=${NON_STAKED_PORTION}                        # 100000
 CLAIM2_AMOUNT=500000               # no delegation
 GRANT1_AMOUNT=2000000              # continuous vesting, no delegation
+COMMUNITY_POOL_AMOUNT=500000       # seeded into distribution fee pool at genesis
 
-# accounts.total_supply is validated BEFORE claims/grants are appended:
+# accounts.total_supply is validated BEFORE claims/grants/community-pool are appended:
 #   = 2 × VAL_BALANCE + 2 × VAL_SELF_DELEGATION(bonded pool) + 1 × ACCOUNT_BALANCE
 TOTAL_SUPPLY=$(( 2 * VAL_BALANCE + 2 * VAL_SELF_DELEGATION + ACCOUNT_BALANCE ))
 
-# Expected on-chain state AFTER claims/grants are appended:
-EXPECTED_BANK_SUPPLY=$(( TOTAL_SUPPLY + CLAIM1_AMOUNT + CLAIM2_AMOUNT + GRANT1_AMOUNT ))
+# Expected on-chain state AFTER claims/grants/community-pool are appended:
+EXPECTED_BANK_SUPPLY=$(( TOTAL_SUPPLY + CLAIM1_AMOUNT + CLAIM2_AMOUNT + GRANT1_AMOUNT + COMMUNITY_POOL_AMOUNT ))
 EXPECTED_BONDED_TOKENS=$(( 2 * VAL_SELF_DELEGATION + CLAIM1_BONDED ))
 
 mkdir -p "${NODE1}" "${NODE2}" "${DATA_DIR}"
@@ -159,6 +160,9 @@ grants:
 accounts:
   total_supply: ${TOTAL_SUPPLY}
   file_name: ${DATA_DIR}/accounts.csv
+
+distribution:
+  community_pool_amount: ${COMMUNITY_POOL_AMOUNT}
 
 validators:
   gentx_dir: ${NODE1}/config/gentx
@@ -352,6 +356,14 @@ assert_eq "bank.total_supply"   "${EXPECTED_BANK_SUPPLY}"  "${BANK_SUPPLY}"
 BONDED_TOKENS=$(gaiad query staking pool --node "${NODE_URL}" --output json \
     | jq -r '.pool.bonded_tokens // .bonded_tokens')
 assert_eq "staking.pool.bonded_tokens" "${EXPECTED_BONDED_TOKENS}" "${BONDED_TOKENS}"
+
+echo "--- distribution community pool ---"
+COMM_POOL=$(gaiad query distribution community-pool --node "${NODE_URL}" --output json \
+    | jq -r '(.pool // .community_pool // [])[]
+             | if type == "object" then select(.denom == "'"${DENOM}"'") | .amount
+               else select(endswith("'"${DENOM}"'")) | gsub("'"${DENOM}"'$"; "")
+               end')
+assert_float_eq "distribution.community_pool.amount" "${COMMUNITY_POOL_AMOUNT}" "${COMM_POOL}"
 
 ACC1_BAL=$(gaiad query bank balances "${ACC1}" --node "${NODE_URL}" --output json \
     | jq -r '.balances[] | select(.denom == "uatom") | .amount')

@@ -34,7 +34,7 @@ The tool runs these steps in order:
 4. Adds non-vesting initial accounts from `accounts.csv`.
 5. Validates total supply against `accounts.total_supply` — fails fast if mismatched.
 6. Adds delayed vesting accounts (**claims**) and continuous vesting accounts (**grants**); optionally pre-delegates a portion of claim tokens to named validators.
-7. Writes final staking state (params, delegations, last validator powers), distribution state, denomination metadata, and slashing parameters.
+7. Writes final staking state (params, delegations, last validator powers), distribution state (including optional community pool seeding), denomination metadata, and slashing parameters.
 8. Clears `genutil.gen_txs` so the chain does not re-process gentxs on startup.
 9. Sets the CometBFT consensus validator set.
 
@@ -222,6 +222,14 @@ Omit this entire section to preserve denom metadata from the baseline genesis. S
 | `grants.vesting.start_date` | int (unix) | **yes** | Unix timestamp at which linear vesting begins. |
 | `grants.vesting.end_date` | int (unix) | **yes** | Unix timestamp at which vesting completes. |
 
+### `distribution`
+
+All fields are optional. Omit the entire section to leave distribution state at its SDK defaults.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `distribution.community_pool_amount` | int | Amount in `default_bond_denom` to seed into `FeePool.CommunityPool` at genesis. Added **after** supply validation (same convention as claims/grants). Default `0` (no seeding). |
+
 ### `validators`
 
 | Key | Type | Required | Description |
@@ -281,7 +289,7 @@ accounts.total_supply
   + sum(gentx self-delegation amounts)    ← held in bonded_tokens_pool
 ```
 
-Claims and grants each contribute their own token amounts on top of this figure and are not included in `accounts.total_supply`.
+Claims, grants, and the community pool (`distribution.community_pool_amount`) each contribute their own token amounts on top of this figure and are not included in `accounts.total_supply`.
 
 ---
 
@@ -294,7 +302,7 @@ The following standard module accounts are always created automatically:
 | `bonded_tokens_pool` | Sum of all gentx self-delegation amounts | `burner`, `staking` |
 | `not_bonded_tokens_pool` | 0 | `burner`, `staking` |
 | `gov` | 0 | `burner` |
-| `distribution` | 0 | — |
+| `distribution` | `distribution.community_pool_amount` (default 0) | — |
 | `mint` | 0 | `minter` |
 | `fee_collector` | 0 | — |
 
@@ -304,12 +312,15 @@ Extra modules declared under `modules.extra` start with zero balance and whateve
 
 ## Roadmap
 
-The following features are planned but not yet implemented:
+Implemented:
+
+- [x] Community pool seeding
+
+Planned:
 
 - [ ] Periodic vesting accounts
 - [ ] Named vesting buckets
 - [ ] `authz` / `feegrant` genesis grants
-- [ ] Community pool seeding
 
 ---
 
