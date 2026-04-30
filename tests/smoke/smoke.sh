@@ -23,12 +23,12 @@ CLAIM2_AMOUNT=500000               # no delegation
 GRANT1_AMOUNT=2000000              # continuous vesting, no delegation
 COMMUNITY_POOL_AMOUNT=500000       # seeded into distribution fee pool at genesis
 
-# accounts.total_supply is validated BEFORE claims/grants/community-pool are appended:
-#   = 2 × VAL_BALANCE + 2 × VAL_SELF_DELEGATION(bonded pool) + 1 × ACCOUNT_BALANCE
-TOTAL_SUPPLY=$(( 2 * VAL_BALANCE + 2 * VAL_SELF_DELEGATION + ACCOUNT_BALANCE ))
-
-# Expected on-chain state AFTER claims/grants/community-pool are appended:
-EXPECTED_BANK_SUPPLY=$(( TOTAL_SUPPLY + CLAIM1_AMOUNT + CLAIM2_AMOUNT + GRANT1_AMOUNT + COMMUNITY_POOL_AMOUNT ))
+# accounts.total_supply = true final on-chain supply (validated at the end of gentool):
+#   = 2 × VAL_BALANCE + 2 × VAL_SELF_DELEGATION(bonded pool) + ACCOUNT_BALANCE
+#   + CLAIM1_AMOUNT + CLAIM2_AMOUNT + GRANT1_AMOUNT + COMMUNITY_POOL_AMOUNT
+TOTAL_SUPPLY=$(( 2 * VAL_BALANCE + 2 * VAL_SELF_DELEGATION + ACCOUNT_BALANCE \
+               + CLAIM1_AMOUNT + CLAIM2_AMOUNT + GRANT1_AMOUNT + COMMUNITY_POOL_AMOUNT ))
+EXPECTED_BANK_SUPPLY=${TOTAL_SUPPLY}
 EXPECTED_BONDED_TOKENS=$(( 2 * VAL_SELF_DELEGATION + CLAIM1_BONDED ))
 
 mkdir -p "${NODE1}" "${NODE2}" "${DATA_DIR}"

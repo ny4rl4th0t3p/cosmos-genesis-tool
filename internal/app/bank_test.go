@@ -2,13 +2,11 @@ package app
 
 import (
 	"encoding/json"
-	"path/filepath"
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -86,52 +84,42 @@ func TestSetDenominationMetadata_BaseEqualsDisplay_SingleDenomUnit(t *testing.T)
 	assert.Len(t, bankState.DenomMetadata[0].DenomUnits, 1)
 }
 
-// writeMinimalGenesis creates a temp genesis file containing only a bank state with the given supply.
-func writeMinimalGenesis(t *testing.T, ec encoding.EncodingConfig, supply sdk.Coins) string {
+func bankStateManagerWithSupply(t *testing.T, supply sdk.Coins) StateManager {
 	t.Helper()
+	ec := encoding.NewEncodingConfig()
 	bankState := banktypes.DefaultGenesisState()
 	bankState.Supply = supply
 	bankBz, err := ec.Codec.MarshalJSON(bankState)
 	require.NoError(t, err)
-	appStateJSON, err := json.Marshal(map[string]json.RawMessage{"bank": bankBz})
-	require.NoError(t, err)
-	appGenesis := genutiltypes.AppGenesis{AppState: appStateJSON}
-	path := filepath.Join(t.TempDir(), "genesis.json")
-	require.NoError(t, appGenesis.SaveAs(path))
-	return path
+	return StateManager{
+		clientCtx:   client.Context{}.WithCodec(ec.Codec),
+		appGenState: map[string]json.RawMessage{"bank": bankBz},
+	}
 }
 
 func TestValidateSupply_Match_NoError(t *testing.T) {
-	ec := encoding.NewEncodingConfig()
-	path := writeMinimalGenesis(t, ec, sdk.NewCoins(sdk.NewInt64Coin("uatom", 1_000_000)))
+	asm := bankStateManagerWithSupply(t, sdk.NewCoins(sdk.NewInt64Coin("uatom", 1_000_000)))
 
-	viper.Set("genesis.output", path)
 	viper.Set("default_bond_denom", "uatom")
 	viper.Set("accounts.total_supply", int64(1_000_000))
 	t.Cleanup(func() {
-		viper.Set("genesis.output", nil)
 		viper.Set("default_bond_denom", nil)
 		viper.Set("accounts.total_supply", nil)
 	})
 
-	asm := StateManager{clientCtx: client.Context{}.WithCodec(ec.Codec)}
 	require.NoError(t, asm.validateSupply())
 }
 
 func TestValidateSupply_Mismatch_ReturnsError(t *testing.T) {
-	ec := encoding.NewEncodingConfig()
-	path := writeMinimalGenesis(t, ec, sdk.NewCoins(sdk.NewInt64Coin("uatom", 1_000_000)))
+	asm := bankStateManagerWithSupply(t, sdk.NewCoins(sdk.NewInt64Coin("uatom", 1_000_000)))
 
-	viper.Set("genesis.output", path)
 	viper.Set("default_bond_denom", "uatom")
 	viper.Set("accounts.total_supply", int64(9_999_999))
 	t.Cleanup(func() {
-		viper.Set("genesis.output", nil)
 		viper.Set("default_bond_denom", nil)
 		viper.Set("accounts.total_supply", nil)
 	})
 
-	asm := StateManager{clientCtx: client.Context{}.WithCodec(ec.Codec)}
 	err := asm.validateSupply()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "total supply mismatch")

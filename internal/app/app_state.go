@@ -93,10 +93,6 @@ func (asm StateManager) SetupAppState(ctx context.Context) (map[string]int64, er
 		return nil, err
 	}
 
-	if err := asm.validateSupply(); err != nil {
-		return nil, fmt.Errorf("supply validation failed: %w", err)
-	}
-
 	slog.Info("Appending claims and grants...")
 	delegations, updatedAppState, updatedAppGenesis, err := asm.accounts.appendVestingAccounts(
 		ctx, asm.encodingConfig, asm.clientCtx, validatorsReference)
@@ -124,6 +120,11 @@ func (asm StateManager) SetupAppState(ctx context.Context) (map[string]int64, er
 	slog.Info("Configuring slashing parameters...")
 	if err := asm.setSlashingState(asm.appGenState); err != nil {
 		return nil, err
+	}
+
+	slog.Info("Validating total supply...")
+	if err := asm.validateSupply(); err != nil {
+		return nil, fmt.Errorf("supply validation failed: %w", err)
 	}
 
 	slog.Info("Saving final genesis file...")

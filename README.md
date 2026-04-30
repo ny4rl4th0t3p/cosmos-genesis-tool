@@ -32,9 +32,9 @@ The tool runs these steps in order:
 2. Injects standard module accounts (`bonded_tokens_pool`, `not_bonded_tokens_pool`, `gov`, `distribution`, `mint`, `fee_collector`) and any chain-specific extra modules.
 3. Reads all gentx files; injects validator accounts, staking validators, delegations, signing infos, and consensus validator set.
 4. Adds non-vesting initial accounts from `accounts.csv`.
-5. Validates total supply against `accounts.total_supply` — fails fast if mismatched.
-6. Adds delayed vesting accounts (**claims**) and continuous vesting accounts (**grants**); optionally pre-delegates a portion of claim tokens to named validators.
-7. Writes final staking state (params, delegations, last validator powers), distribution state (including optional community pool seeding), denomination metadata, and slashing parameters.
+5. Adds delayed vesting accounts (**claims**) and continuous vesting accounts (**grants**); optionally pre-delegates a portion of claim tokens to named validators.
+6. Writes final staking state (params, delegations, last validator powers), distribution state (including optional community pool seeding), denomination metadata, and slashing parameters.
+7. Validates total supply against `accounts.total_supply` — fails fast if the final bank supply does not match.
 8. Clears `genutil.gen_txs` so the chain does not re-process gentxs on startup.
 9. Sets the CometBFT consensus validator set.
 
@@ -204,7 +204,7 @@ Omit this entire section to preserve denom metadata from the baseline genesis. S
 | Key | Type | Required | Description |
 |-----|------|----------|-------------|
 | `accounts.file_name` | string | **yes** | Path to `accounts.csv`. |
-| `accounts.total_supply` | int | **yes** | Expected total supply in base denom, counted before claims/grants are added. Must equal `sum(accounts.csv) + sum(gentx self-delegations)`. Validated at runtime; the tool exits with an error on mismatch. |
+| `accounts.total_supply` | int | **yes** | True final on-chain supply in base denom. Must equal the sum of every token that will exist at genesis (see [Supply validation](#supply-validation)). Validated at runtime after all accounts are added; the tool exits with an error on mismatch. |
 | `accounts.non_staked_portion` | int | no | Amount in base denom kept liquid per delegating claim. Default `100000`. See [Vesting account types](#vesting-account-types). |
 
 ### `claims`
@@ -268,7 +268,7 @@ Valid permissions: `minter`, `burner`, `staking`.
 | CSV | `claims.csv` | `grants.csv` |
 | Vesting type | Delayed | Continuous |
 | Pre-delegation | Optional (third CSV column) | Never |
-| Adds to `total_supply` | No — added after supply check | No — added after supply check |
+| Included in `accounts.total_supply` | Yes | Yes |
 
 **How claim delegation works:** when a claim row specifies a validator moniker, gentool:
 
@@ -281,15 +281,18 @@ Valid permissions: `minter`, `burner`, `staking`.
 
 ## Supply validation
 
-`accounts.total_supply` is checked after module accounts and initial accounts are written, but **before** claims and grants are added. At that checkpoint the bank supply must equal exactly:
+`accounts.total_supply` is validated at the **end** of the pipeline, after all accounts (module accounts, initial accounts, claims, grants, and the community pool) have been written. The bank supply at that point must equal exactly:
 
 ```
 accounts.total_supply
   = sum(accounts.csv amounts)
   + sum(gentx self-delegation amounts)    ← held in bonded_tokens_pool
+  + sum(claims.csv amounts)
+  + sum(grants.csv amounts)
+  + distribution.community_pool_amount    ← 0 if not configured
 ```
 
-Claims, grants, and the community pool (`distribution.community_pool_amount`) each contribute their own token amounts on top of this figure and are not included in `accounts.total_supply`.
+The tool exits with an error if the bank supply does not match this value.
 
 ---
 

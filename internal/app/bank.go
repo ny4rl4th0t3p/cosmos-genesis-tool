@@ -5,7 +5,6 @@ import (
 
 	"cosmossdk.io/math"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/spf13/viper"
 )
 
@@ -50,11 +49,7 @@ func (asm StateManager) setDenominationMetadata() error {
 }
 
 func (asm StateManager) validateSupply() error {
-	appState, _, err := genutiltypes.GenesisStateFromGenFile(viper.GetString("genesis.output"))
-	if err != nil {
-		return fmt.Errorf("failed to read genesis file: %w", err)
-	}
-	bankGenState := banktypes.GetGenesisStateFromAppState(asm.clientCtx.Codec, appState)
+	bankGenState := banktypes.GetGenesisStateFromAppState(asm.clientCtx.Codec, asm.appGenState)
 	supply := bankGenState.Supply.AmountOf(viper.GetString("default_bond_denom"))
 	totalSupply := math.NewInt(viper.GetInt64("accounts.total_supply"))
 	if !supply.Equal(totalSupply) {
