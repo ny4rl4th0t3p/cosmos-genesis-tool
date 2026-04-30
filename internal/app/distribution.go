@@ -106,32 +106,8 @@ func (asm StateManager) setDistribution(appGenState map[string]json.RawMessage, 
 	distributionGenState.ValidatorCurrentRewards = currentRewards
 	distributionGenState.ValidatorHistoricalRewards = historicalRewards
 
-	if poolAmt := viper.GetInt64("distribution.community_pool_amount"); poolAmt > 0 {
-		denom := viper.GetString("default_bond_denom")
-		distributionGenState.FeePool.CommunityPool = sdk.NewDecCoins(sdk.NewDecCoin(denom, math.NewInt(poolAmt)))
-
-		hrp := viper.GetString("chain.address_prefix")
-		distAddr, err := moduleAddress(hrp, "distribution")
-		if err != nil {
-			return err
-		}
-		coin := sdk.NewCoin(denom, math.NewInt(poolAmt))
-		bankGenState := banktypes.GetGenesisStateFromAppState(asm.encodingConfig.Codec, appGenState)
-		if err := updateBalances(
-			authtypes.NewModuleAddress("distribution"),
-			banktypes.Balance{Address: distAddr, Coins: sdk.NewCoins(coin)},
-			sdk.NewCoins(coin),
-			bankGenState,
-			true,
-		); err != nil {
-			return fmt.Errorf("failed to update distribution bank balance: %w", err)
-		}
-		bankGenState.Supply = bankGenState.Supply.Add(coin)
-		bankStateBz, err := asm.encodingConfig.Codec.MarshalJSON(bankGenState)
-		if err != nil {
-			return fmt.Errorf("failed to marshal bank genesis state: %w", err)
-		}
-		appGenState["bank"] = bankStateBz
+	if err := asm.seedCommunityPool(appGenState, distributionGenState); err != nil {
+		return err
 	}
 
 	// Use cdc.MarshalJSON to produce correct proto-JSON (height as "height", period as quoted int64).
@@ -140,5 +116,38 @@ func (asm StateManager) setDistribution(appGenState map[string]json.RawMessage, 
 		return fmt.Errorf("failed to marshal distribution genesis state: %w", err)
 	}
 	appGenState["distribution"] = distStateBz
+	return nil
+}
+
+func (asm StateManager) seedCommunityPool(appGenState map[string]json.RawMessage, distState *distributiontypes.GenesisState) error {
+	poolAmt := viper.GetInt64("distribution.community_pool_amount")
+	if poolAmt <= 0 {
+		return nil
+	}
+	denom := viper.GetString("default_bond_denom")
+	distState.FeePool.CommunityPool = sdk.NewDecCoins(sdk.NewDecCoin(denom, math.NewInt(poolAmt)))
+
+	hrp := viper.GetString("chain.address_prefix")
+	distAddr, err := moduleAddress(hrp, "distribution")
+	if err != nil {
+		return err
+	}
+	coin := sdk.NewCoin(denom, math.NewInt(poolAmt))
+	bankGenState := banktypes.GetGenesisStateFromAppState(asm.encodingConfig.Codec, appGenState)
+	if err := updateBalances(
+		authtypes.NewModuleAddress("distribution"),
+		banktypes.Balance{Address: distAddr, Coins: sdk.NewCoins(coin)},
+		sdk.NewCoins(coin),
+		bankGenState,
+		true,
+	); err != nil {
+		return fmt.Errorf("failed to update distribution bank balance: %w", err)
+	}
+	bankGenState.Supply = bankGenState.Supply.Add(coin)
+	bankStateBz, err := asm.encodingConfig.Codec.MarshalJSON(bankGenState)
+	if err != nil {
+		return fmt.Errorf("failed to marshal bank genesis state: %w", err)
+	}
+	appGenState["bank"] = bankStateBz
 	return nil
 }
