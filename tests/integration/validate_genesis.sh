@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: validate_genesis.sh <genesis_file> <chain_id> <total_supply_pre_claims>
+# Usage: validate_genesis.sh <genesis_file> <chain_id> <total_supply>
 #                             <claim1> <claim2> <claim3>
 #                             <acc1> .. <acc5>
 #                             <val1_addr> <val2_addr>
@@ -8,7 +8,7 @@ set -euo pipefail
 
 GENESIS_FILE="$1"
 CHAIN_ID="$2"
-TOTAL_SUPPLY_PRE_CLAIMS="$3"
+TOTAL_SUPPLY="$3"
 CLAIM1="$4"
 CLAIM2="$5"
 CLAIM3="$6"
@@ -24,10 +24,8 @@ CHAIN_HOME="${14}"
 DENOM="uatom"
 CLAIM_AMOUNT=1000000
 NON_STAKED_PORTION=100000
-NUM_CLAIMS=3
 
-# Final supply = pre-claims supply + all claim amounts
-EXPECTED_FINAL_SUPPLY=$(( TOTAL_SUPPLY_PRE_CLAIMS + NUM_CLAIMS * CLAIM_AMOUNT ))
+EXPECTED_FINAL_SUPPLY=${TOTAL_SUPPLY}
 
 # Bonded pool = 2 validator self-delegations + 2 delegating claims × (claim_amount - non_staked)
 EXPECTED_BONDED=$(( 2 * 1000000 + 2 * (CLAIM_AMOUNT - NON_STAKED_PORTION) ))

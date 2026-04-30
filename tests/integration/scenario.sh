@@ -21,13 +21,15 @@ NUM_VALIDATORS=2
 NUM_ACCOUNTS=5
 NUM_CLAIMS=3
 
-# accounts.total_supply is validated BEFORE claims are added:
+# accounts.total_supply = true final on-chain supply (validated at end of gentool):
 #   = NUM_VALIDATORS * VAL_BALANCE          (already in input genesis)
 #   + NUM_VALIDATORS * VAL_SELF_DELEGATION  (bonded pool, appendModuleAccounts)
 #   + NUM_ACCOUNTS   * ACCOUNT_BALANCE      (appendInitialAccounts)
+#   + NUM_CLAIMS     * CLAIM_AMOUNT         (claims, appendVestingAccounts)
 TOTAL_SUPPLY=$(( NUM_VALIDATORS * VAL_BALANCE \
                + NUM_VALIDATORS * VAL_SELF_DELEGATION \
-               + NUM_ACCOUNTS   * ACCOUNT_BALANCE ))
+               + NUM_ACCOUNTS   * ACCOUNT_BALANCE \
+               + NUM_CLAIMS     * CLAIM_AMOUNT ))
 
 mkdir -p "${CHAIN_HOME}" "${CHAIN_HOME2}" "${DATA_DIR}" "${OUTPUT_DIR}"
 
