@@ -55,6 +55,21 @@ accounts:
     - ex1l5zzknpjw53ph95maw5tc0c79776wcfnrs067w
     - ex1jpkj90qwdcx9dfrdaacce0kfvzdufp4rn6yfl7
 
+# Community pool seeding — optional; omit section or set to 0 to skip
+distribution:
+  community_pool_amount: 0
+
+# authz genesis grants — optional; omit section to skip
+# CSV format: granter,grantee,msg_type_url[,expiry_unix_timestamp]
+# authz:
+#   file_name: /path/to/authz.csv
+
+# feegrant genesis allowances — optional; omit section to skip
+# CSV format: granter,grantee,spend_limit_amount[,expiry_unix_timestamp]
+# spend_limit 0 = BasicAllowance with no spend limit
+# feegrant:
+#   file_name: /path/to/feegrant.csv
+
 validators:
   gentx_dir: /path/to/gentx
 
