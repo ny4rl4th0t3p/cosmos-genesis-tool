@@ -22,6 +22,7 @@ CLAIM1_LIQUID=${NON_STAKED_PORTION}                        # 100000
 CLAIM2_AMOUNT=500000               # no delegation
 GRANT1_AMOUNT=2000000              # continuous vesting, no delegation
 COMMUNITY_POOL_AMOUNT=500000       # seeded into distribution fee pool at genesis
+FEEGRANT_SPEND_LIMIT=5000000       # fee allowance granted by account1 to claim2
 
 # accounts.total_supply = true final on-chain supply (validated at the end of gentool):
 #   = 2 × VAL_BALANCE + 2 × VAL_SELF_DELEGATION(bonded pool) + ACCOUNT_BALANCE
@@ -97,12 +98,18 @@ echo "    claim1:  ${CLAIM1_ADDR}  (${CLAIM1_AMOUNT}${DENOM}, delegates to valid
 echo "    claim2:  ${CLAIM2_ADDR}  (${CLAIM2_AMOUNT}${DENOM}, no delegation)"
 echo "    grant1:  ${GRANT1_ADDR}  (${GRANT1_AMOUNT}${DENOM}, continuous vesting)"
 
-echo ">>> [6.7] writing claims.csv and grants.csv"
+echo ">>> [6.7] writing claims.csv, grants.csv, authz.csv, feegrant.csv"
 # claims.csv: address,amount[,delegate_to_moniker]
 printf '%s,%s,validator-alpha\n' "${CLAIM1_ADDR}" "${CLAIM1_AMOUNT}" >  "${DATA_DIR}/claims.csv"
 printf '%s,%s\n'                 "${CLAIM2_ADDR}" "${CLAIM2_AMOUNT}" >> "${DATA_DIR}/claims.csv"
 # grants.csv: address,amount
 printf '%s,%s\n' "${GRANT1_ADDR}" "${GRANT1_AMOUNT}" > "${DATA_DIR}/grants.csv"
+# authz.csv: granter,grantee,msg_type_url[,expiry_unix_timestamp]
+# account1 authorises claim1 to send MsgSend on its behalf (no expiry)
+printf '%s,%s,/cosmos.bank.v1beta1.MsgSend\n' "${ACC1}" "${CLAIM1_ADDR}" > "${DATA_DIR}/authz.csv"
+# feegrant.csv: granter,grantee,spend_limit_amount[,expiry_unix_timestamp]
+# account1 grants claim2 a fee allowance (no expiry)
+printf '%s,%s,%s\n' "${ACC1}" "${CLAIM2_ADDR}" "${FEEGRANT_SPEND_LIMIT}" > "${DATA_DIR}/feegrant.csv"
 
 # ── 6.8  Write gentool.yaml ───────────────────────────────────────────────────
 echo ">>> [6.8] writing gentool.yaml  (total_supply=${TOTAL_SUPPLY})"
@@ -163,6 +170,12 @@ accounts:
 
 distribution:
   community_pool_amount: ${COMMUNITY_POOL_AMOUNT}
+
+authz:
+  file_name: ${DATA_DIR}/authz.csv
+
+feegrant:
+  file_name: ${DATA_DIR}/feegrant.csv
 
 validators:
   gentx_dir: ${NODE1}/config/gentx
@@ -431,6 +444,33 @@ assert_eq "grant1.start_time" "${GENESIS_TIME}" "${GRANT1_START}"
 GRANT1_BAL=$(gaiad query bank balances "${GRANT1_ADDR}" --node "${NODE_URL}" --output json \
     | jq -r '.balances[] | select(.denom == "uatom") | .amount')
 assert_eq "grant1.liquid_balance" "${GRANT1_AMOUNT}" "${GRANT1_BAL}"
+
+echo "--- authz grants ---"
+AUTHZ_GRANTS=$(gaiad query authz grants-by-grantee "${CLAIM1_ADDR}" --node "${NODE_URL}" --output json 2>/dev/null \
+    | jq '.grants // []')
+AUTHZ_COUNT=$(echo "${AUTHZ_GRANTS}" | jq 'length')
+assert_eq "authz.grants_for_claim1" "1" "${AUTHZ_COUNT}"
+AUTHZ_GRANTER=$(echo "${AUTHZ_GRANTS}" | jq -r '.[0].granter // empty')
+# gaia v27 returns amino encoding: "type"/"value" instead of proto3 "@type"/fields
+AUTHZ_TYPE=$(echo "${AUTHZ_GRANTS}" | jq -r '.[0].authorization["@type"] // .[0].authorization["type"] // empty')
+assert_eq "authz.granter" "${ACC1}" "${AUTHZ_GRANTER}"
+assert_contains "authz.authorization_type" "GenericAuthorization" "${AUTHZ_TYPE}"
+
+echo "--- feegrant allowances ---"
+# gaia v27 exposes this as grants-by-granter (not allowances-by-granter)
+FEEGRANT_ALLOWANCES=$(gaiad query feegrant grants-by-granter "${ACC1}" --node "${NODE_URL}" --output json 2>/dev/null \
+    | jq '.allowances // []')
+FEEGRANT_COUNT=$(echo "${FEEGRANT_ALLOWANCES}" | jq 'length')
+assert_eq "feegrant.allowances_from_account1" "1" "${FEEGRANT_COUNT}"
+FEEGRANT_GRANTEE=$(echo "${FEEGRANT_ALLOWANCES}" | jq -r '.[0].grantee // empty')
+# gaia v27 returns amino encoding: "type"/"value" instead of proto3 "@type"/fields
+FEEGRANT_TYPE=$(echo "${FEEGRANT_ALLOWANCES}" | jq -r '.[0].allowance["@type"] // .[0].allowance["type"] // empty')
+assert_eq "feegrant.grantee" "${CLAIM2_ADDR}" "${FEEGRANT_GRANTEE}"
+assert_contains "feegrant.allowance_type" "BasicAllowance" "${FEEGRANT_TYPE}"
+# amino encoding nests fields under "value"; proto3 puts them at top level
+FEEGRANT_LIMIT=$(echo "${FEEGRANT_ALLOWANCES}" | jq -r \
+    '[(.[0].allowance.spend_limit // .[0].allowance.value.spend_limit // []) | .[] | select(.denom == "'"${DENOM}"'") | .amount] | first // "0"')
+assert_eq "feegrant.spend_limit" "${FEEGRANT_SPEND_LIMIT}" "${FEEGRANT_LIMIT}"
 
 echo "--- denom metadata ---"
 DENOM_META=$(gaiad query bank denom-metadata "${DENOM}" --node "${NODE_URL}" --output json 2>/dev/null \

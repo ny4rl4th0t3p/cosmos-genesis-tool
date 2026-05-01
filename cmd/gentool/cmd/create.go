@@ -56,12 +56,16 @@ var createCmd = &cobra.Command{
 		grantRepository := csv.NewCSVGrantRepository(viper.GetString("grants.file_name"), moduleAddresses)
 		initialAccountsRepository := csv.NewCSVInitialAccountsRepository(viper.GetString("accounts.file_name"), moduleAddresses)
 		validatorsRepository := gentx.NewValidatorRepository(viper.GetString("validators.gentx_dir"))
+		authzGrantRepository := csv.NewCSVAuthzGrantRepository(viper.GetString("authz.file_name"), moduleAddresses)
+		feeAllowanceRepository := csv.NewCSVFeeAllowanceRepository(viper.GetString("feegrant.file_name"), moduleAddresses)
 
 		appStateManager := app.NewAppStateManager(
 			claimRepository,
 			grantRepository,
 			initialAccountsRepository,
 			validatorsRepository,
+			authzGrantRepository,
+			feeAllowanceRepository,
 			appGenState,
 			appGenesis,
 			encodingConfig,

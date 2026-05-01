@@ -9,6 +9,7 @@ import (
 	"github.com/cometbft/cometbft/config"
 	"github.com/cosmos/cosmos-sdk/client"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/spf13/viper"
 
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
@@ -16,16 +17,18 @@ import (
 )
 
 type StateManager struct {
-	claimRepository     repository.ClaimRepository
-	grantRepository     repository.GrantRepository
-	initialAccountsRepo repository.InitialAccountsRepository
-	validatorRepository repository.ValidatorRepository
-	accounts            *Accounts
-	appGenState         map[string]json.RawMessage
-	appGenesis          *genutiltypes.AppGenesis
-	encodingConfig      encoding.EncodingConfig
-	config              *config.Config
-	clientCtx           client.Context
+	claimRepository        repository.ClaimRepository
+	grantRepository        repository.GrantRepository
+	initialAccountsRepo    repository.InitialAccountsRepository
+	validatorRepository    repository.ValidatorRepository
+	authzGrantRepository   repository.AuthzGrantRepository
+	feeAllowanceRepository repository.FeeAllowanceRepository
+	accounts               *Accounts
+	appGenState            map[string]json.RawMessage
+	appGenesis             *genutiltypes.AppGenesis
+	encodingConfig         encoding.EncodingConfig
+	config                 *config.Config
+	clientCtx              client.Context
 }
 
 func NewAppStateManager(
@@ -33,6 +36,8 @@ func NewAppStateManager(
 	grantRepository repository.GrantRepository,
 	initialAccountsRepo repository.InitialAccountsRepository,
 	validatorRepository repository.ValidatorRepository,
+	authzGrantRepository repository.AuthzGrantRepository,
+	feeAllowanceRepository repository.FeeAllowanceRepository,
 	appGenState map[string]json.RawMessage,
 	appGenesis *genutiltypes.AppGenesis,
 	encodingConfig encoding.EncodingConfig,
@@ -40,16 +45,18 @@ func NewAppStateManager(
 	clientCtx client.Context,
 ) *StateManager {
 	return &StateManager{
-		claimRepository:     claimRepository,
-		grantRepository:     grantRepository,
-		initialAccountsRepo: initialAccountsRepo,
-		validatorRepository: validatorRepository,
-		accounts:            NewAccounts(claimRepository, grantRepository, initialAccountsRepo, validatorRepository),
-		appGenState:         appGenState,
-		appGenesis:          appGenesis,
-		encodingConfig:      encodingConfig,
-		config:              cfg,
-		clientCtx:           clientCtx,
+		claimRepository:        claimRepository,
+		grantRepository:        grantRepository,
+		initialAccountsRepo:    initialAccountsRepo,
+		validatorRepository:    validatorRepository,
+		authzGrantRepository:   authzGrantRepository,
+		feeAllowanceRepository: feeAllowanceRepository,
+		accounts:               NewAccounts(claimRepository, grantRepository, initialAccountsRepo, validatorRepository),
+		appGenState:            appGenState,
+		appGenesis:             appGenesis,
+		encodingConfig:         encodingConfig,
+		config:                 cfg,
+		clientCtx:              clientCtx,
 	}
 }
 
@@ -102,23 +109,8 @@ func (asm StateManager) SetupAppState(ctx context.Context) (map[string]int64, er
 	asm.appGenState = updatedAppState
 	asm.appGenesis = updatedAppGenesis
 
-	slog.Info("Configuring staking parameters...")
-	if err := asm.setStakingState(asm.appGenState, delegations, shares); err != nil {
-		return nil, err
-	}
-
-	slog.Info("Configuring denomination metadata...")
-	if err := asm.setDenominationMetadata(); err != nil {
-		return nil, err
-	}
-
-	slog.Info("Configuring distribution parameters...")
-	if err := asm.setDistribution(asm.appGenState, delegations); err != nil {
-		return nil, err
-	}
-
-	slog.Info("Configuring slashing parameters...")
-	if err := asm.setSlashingState(asm.appGenState); err != nil {
+	slog.Info("Configuring module states...")
+	if err := asm.configureModuleStates(ctx, delegations, shares); err != nil {
 		return nil, err
 	}
 
@@ -134,4 +126,38 @@ func (asm StateManager) SetupAppState(ctx context.Context) (map[string]int64, er
 
 	slog.Info("SetupAppState completed successfully.")
 	return shares, nil
+}
+
+func (asm StateManager) configureModuleStates(ctx context.Context, delegations []stakingtypes.Delegation, shares map[string]int64) error {
+	slog.Info("Configuring staking parameters...")
+	if err := asm.setStakingState(asm.appGenState, delegations, shares); err != nil {
+		return err
+	}
+
+	slog.Info("Configuring denomination metadata...")
+	if err := asm.setDenominationMetadata(); err != nil {
+		return err
+	}
+
+	slog.Info("Configuring distribution parameters...")
+	if err := asm.setDistribution(asm.appGenState, delegations); err != nil {
+		return err
+	}
+
+	slog.Info("Configuring slashing parameters...")
+	if err := asm.setSlashingState(asm.appGenState); err != nil {
+		return err
+	}
+
+	slog.Info("Configuring authz grants...")
+	if err := asm.setAuthzState(ctx, asm.appGenState); err != nil {
+		return err
+	}
+
+	slog.Info("Configuring fee allowances...")
+	if err := asm.setFeegrantState(ctx, asm.appGenState); err != nil {
+		return err
+	}
+
+	return nil
 }

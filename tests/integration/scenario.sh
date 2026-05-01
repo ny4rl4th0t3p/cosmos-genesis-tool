@@ -125,12 +125,13 @@ printf '%s,%s,%s\n' "${CLAIM1}" "${CLAIM_AMOUNT}" "validator-alpha" >  "${DATA_D
 printf '%s,%s,%s\n' "${CLAIM2}" "${CLAIM_AMOUNT}" "validator-beta"  >> "${DATA_DIR}/claims.csv"
 printf '%s,%s\n'    "${CLAIM3}" "${CLAIM_AMOUNT}"                   >> "${DATA_DIR}/claims.csv"
 
-# ── 4.13 Write empty grants.csv ───────────────────────────────────────────────
-# appendGrants is defined but not wired into SetupAppState — grants have no
-# effect in the current pipeline.  The file must exist so the repository opens
-# without error.
-echo ">>> [4.13] writing empty grants.csv"
+# ── 4.13 Write empty grants.csv, authz.csv, feegrant.csv ─────────────────────
+echo ">>> [4.13] writing grants.csv, authz.csv, feegrant.csv"
 touch "${DATA_DIR}/grants.csv"
+# authz: claim1 authorises claim2 to send MsgSend on its behalf (no expiry)
+printf '%s,%s,/cosmos.bank.v1beta1.MsgSend\n' "${CLAIM1}" "${CLAIM2}" > "${DATA_DIR}/authz.csv"
+# feegrant: claim1 grants claim3 a fee allowance of 5000000uatom (no expiry)
+printf '%s,%s,5000000\n' "${CLAIM1}" "${CLAIM3}" > "${DATA_DIR}/feegrant.csv"
 
 # ── 4.14 Write gentool.yaml ───────────────────────────────────────────────────
 echo ">>> [4.14] writing gentool.yaml  (total_supply=${TOTAL_SUPPLY})"
@@ -191,6 +192,12 @@ accounts:
 
 validators:
   gentx_dir: ${GENTX_DIR}
+
+authz:
+  file_name: ${DATA_DIR}/authz.csv
+
+feegrant:
+  file_name: ${DATA_DIR}/feegrant.csv
 
 genesis:
   output: ${OUTPUT_DIR}/genesis.json

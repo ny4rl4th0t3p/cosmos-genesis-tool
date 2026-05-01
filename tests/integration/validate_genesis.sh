@@ -183,14 +183,44 @@ echo "── [4.23] consensus validators"
 CONSENSUS_VAL_COUNT=$(jq '.consensus.validators | length' "${GENESIS_FILE}")
 assert_gt "consensus.validators non-empty" "0" "${CONSENSUS_VAL_COUNT}"
 
-# ── 4.24 gaiad validate-genesis ───────────────────────────────────────────────
+# ── 4.24 authz grants ─────────────────────────────────────────────────────────
 echo ""
-echo "── [4.24] gaiad validate-genesis"
+echo "── [4.24] authz grants"
+AUTHZ_COUNT=$(jq '.app_state.authz.authorization | length' "${GENESIS_FILE}")
+assert_eq "authz grant count" "1" "${AUTHZ_COUNT}"
+
+AUTHZ_GRANTER=$(jq -r '.app_state.authz.authorization[0].granter' "${GENESIS_FILE}")
+assert_eq "authz granter" "${CLAIM1}" "${AUTHZ_GRANTER}"
+
+AUTHZ_GRANTEE=$(jq -r '.app_state.authz.authorization[0].grantee' "${GENESIS_FILE}")
+assert_eq "authz grantee" "${CLAIM2}" "${AUTHZ_GRANTEE}"
+
+AUTHZ_MSG_TYPE=$(jq -r '.app_state.authz.authorization[0].authorization["@type"]' "${GENESIS_FILE}")
+assert_contains "authz msg type is GenericAuthorization" "GenericAuthorization" "${AUTHZ_MSG_TYPE}"
+
+# ── 4.25 feegrant allowances ──────────────────────────────────────────────────
+echo ""
+echo "── [4.25] feegrant allowances"
+FEEGRANT_COUNT=$(jq '.app_state.feegrant.allowances | length' "${GENESIS_FILE}")
+assert_eq "feegrant allowance count" "1" "${FEEGRANT_COUNT}"
+
+FEEGRANT_GRANTER=$(jq -r '.app_state.feegrant.allowances[0].granter' "${GENESIS_FILE}")
+assert_eq "feegrant granter" "${CLAIM1}" "${FEEGRANT_GRANTER}"
+
+FEEGRANT_GRANTEE=$(jq -r '.app_state.feegrant.allowances[0].grantee' "${GENESIS_FILE}")
+assert_eq "feegrant grantee" "${CLAIM3}" "${FEEGRANT_GRANTEE}"
+
+FEEGRANT_TYPE=$(jq -r '.app_state.feegrant.allowances[0].allowance["@type"]' "${GENESIS_FILE}")
+assert_contains "feegrant allowance type is BasicAllowance" "BasicAllowance" "${FEEGRANT_TYPE}"
+
+# ── 4.26 gaiad validate-genesis ───────────────────────────────────────────────
+echo ""
+echo "── [4.26] gaiad validate-genesis"
 if gaiad genesis validate "${GENESIS_FILE}" --home "${CHAIN_HOME}" 2>&1; then
     echo "  ✓  gaiad validate-genesis passed"
     PASS=$(( PASS + 1 ))
 else
-    echo "  ✗  gaiad validate-genesis failed"
+    echo "  ✗  gaiad validate-genesis failed (see output above)"
     FAIL=$(( FAIL + 1 ))
 fi
 
