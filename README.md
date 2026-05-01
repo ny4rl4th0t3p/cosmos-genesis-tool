@@ -34,9 +34,10 @@ The tool runs these steps in order:
 4. Adds non-vesting initial accounts from `accounts.csv`.
 5. Adds delayed vesting accounts (**claims**) and continuous vesting accounts (**grants**); optionally pre-delegates a portion of claim tokens to named validators.
 6. Writes final staking state (params, delegations, last validator powers), distribution state (including optional community pool seeding), denomination metadata, and slashing parameters.
-7. Validates total supply against `accounts.total_supply` — fails fast if the final bank supply does not match.
-8. Clears `genutil.gen_txs` so the chain does not re-process gentxs on startup.
-9. Sets the CometBFT consensus validator set.
+7. Optionally seeds `authz` and `feegrant` module state from CSVs.
+8. Validates total supply against `accounts.total_supply` — fails fast if the final bank supply does not match.
+9. Clears `genutil.gen_txs` so the chain does not re-process gentxs on startup.
+10. Sets the CometBFT consensus validator set.
 
 ---
 
@@ -96,6 +97,20 @@ cosmos1ghi...,1000000
 
 ```
 cosmos1jkl...,10000000000
+```
+
+**`authz.csv`** — pre-seeds the `authz` module with `GenericAuthorization` grants. Fields: `granter, grantee, msg_type_url[, expiry_unix_timestamp]`. Expiry is optional; omit for no expiry. No header row.
+
+```
+cosmos1granter...,cosmos1grantee...,/cosmos.bank.v1beta1.MsgSend,1900000000
+cosmos1granter...,cosmos1grantee...,/cosmos.staking.v1beta1.MsgDelegate
+```
+
+**`feegrant.csv`** — pre-seeds the `feegrant` module with `BasicAllowance` grants. Fields: `granter, grantee, spend_limit_amount[, expiry_unix_timestamp]`. Set `spend_limit_amount` to `0` for no spend limit. Expiry is optional. No header row.
+
+```
+cosmos1granter...,cosmos1grantee...,5000000,1900000000
+cosmos1granter...,cosmos1grantee...,0
 ```
 
 **CSV rules:**
@@ -230,6 +245,22 @@ All fields are optional. Omit the entire section to leave distribution state at 
 |-----|------|-------------|
 | `distribution.community_pool_amount` | int | Amount in `default_bond_denom` to seed into `FeePool.CommunityPool` at genesis. Added **after** supply validation (same convention as claims/grants). Default `0` (no seeding). |
 
+### `authz`
+
+Optional. Omit the entire section to skip authz state entirely.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `authz.file_name` | string | Path to `authz.csv`. Each row seeds one `GenericAuthorization` grant. |
+
+### `feegrant`
+
+Optional. Omit the entire section to skip feegrant state entirely.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `feegrant.file_name` | string | Path to `feegrant.csv`. Each row seeds one `BasicAllowance` grant. |
+
 ### `validators`
 
 | Key | Type | Required | Description |
@@ -323,7 +354,7 @@ Planned:
 
 - [ ] Periodic vesting accounts
 - [ ] Named vesting buckets
-- [ ] `authz` / `feegrant` genesis grants
+- [x] `authz` / `feegrant` genesis grants
 
 ---
 
@@ -357,9 +388,11 @@ internal/
     gov.go            Governance params
     mint.go           Mint params
     bank.go           Denom metadata + supply validation
+    authz.go          authz genesis grants
+    feegrant.go       feegrant genesis allowances
     consensus.go      CometBFT consensus validator set
     utils.go          Shared helpers (LoadGenesis, updateModuleState, vesting account builders)
-  domain/             Pure domain types (Validator, Claim, Grant, InitialAccount)
+  domain/             Pure domain types (Validator, Claim, Grant, InitialAccount, AuthzGrant, FeeAllowance)
   encoding/           Chain-agnostic EncodingConfig
   repository/         CSV + gentx readers
 tests/
