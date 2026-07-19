@@ -363,8 +363,10 @@ Extra modules declared under `modules.extra` start with zero balance and whateve
 
 ## Embedding as a library
 
-The genesis engine is importable: `pkg/genesis` is standalone and side-effect-free, and `pkg/cli`
-exposes the commands for mounting into a host CLI.
+The genesis engine is importable: `pkg/genesis` is standalone and **side-effect-limited** — its one
+global side effect is sealing the process-global `sdk.Config` bech32 prefixes on the first `Build` (call
+it once per process with a consistent prefix) — and `pkg/cli` exposes the commands for mounting into a
+host CLI.
 
 ### Mount the CLI commands
 
@@ -398,8 +400,9 @@ err = appGenesis.SaveAs(outputPath)
 
 `Build` takes the raw baseline genesis bytes, a `genesis.ChainConfig`, and a `genesis.Repositories`
 bundle. CSV- and gentx-backed repository implementations live in `pkg/genesis/csv` and
-`pkg/genesis/gentx`, or you can supply your own. The `AuthzGrants` and `FeeAllowances` repositories
-are optional — leave them `nil` to skip those modules.
+`pkg/genesis/gentx`, or you can supply your own. Only `InitialAccounts` and `Validators` are required;
+`Claims`, `Grants`, `AuthzGrants`, and `FeeAllowances` are optional — leave any of them `nil` to skip
+those records/modules.
 
 ---
 
@@ -468,7 +471,7 @@ make lint-fix       # golangci-lint with auto-fixes
 cmd/gentool/          Standalone CLI entry point
 pkg/
   cli/                Cobra commands + embedding API (NewGenesisCommands)
-  genesis/            Importable, side-effect-free genesis engine
+  genesis/            Importable, side-effect-limited genesis engine (seals sdk.Config on first Build)
     build.go          Build orchestrator (library entry point)
     config.go         ChainConfig
     accounts.go       Validator / claim / grant / initial account injection
@@ -489,6 +492,8 @@ pkg/
     csv/              CSV repositories (accounts, claims, grants, authz, feegrant)
     gentx/            Gentx reader (validator repository)
     encoding/         Chain-agnostic EncodingConfig + module address derivation
+  config/             Shared viper → ChainConfig mapping (used by `create` and the rehearsal runner)
+  rehearse/           Pre-flight rehearsal engine, embedded by seedward-rehearsal (see docs/rehearse-engine.md)
 tests/
   integration/        Docker Compose: full genesis creation + gaiad validate-genesis
   smoke/              Docker Compose: 2-validator chain boots + 35 on-chain assertions (params, vesting accounts, supply, delegations, denom metadata)
