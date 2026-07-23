@@ -1,5 +1,8 @@
 # gentool
 
+Part of
+**Seedward** — [docs](https://ny4rl4th0t3p.github.io/seedward-suite) · [ADRs](https://ny4rl4th0t3p.github.io/seedward-suite/decisions/) · [demo](https://ny4rl4th0t3p.github.io/seedward-suite/demo/)
+
 > **Warning:** This tool is a work in progress. It has been tested and should produce correct output, but use it
 > carefully on any network with real economic impact or staked value. Always validate the output genesis with your chain
 > binary before launch and review the result manually.
@@ -7,10 +10,9 @@
 > This software is provided as-is under the [Apache 2.0 License](LICENSE) with no warranty. The authors accept no
 > responsibility for loss of funds, incorrect genesis state, or chain failures resulting from its use.
 
-A CLI for generating a production-ready genesis file for any Cosmos SDK chain.
-It takes a baseline genesis produced by `<chaind> init`, enriches it with
-validator gentxs, initial accounts, vesting claims, and vesting grants, and
-writes a fully-validated output genesis.
+A CLI for generating a production-ready genesis file for any Cosmos SDK chain. It takes a baseline genesis produced by
+`<chaind> init`, enriches it with validator gentxs, initial accounts, vesting claims, and vesting grants, and writes a
+fully-validated output genesis.
 
 ---
 
@@ -147,8 +149,7 @@ gentool create \
   --config gentool.yaml
 ```
 
-The output genesis is written to the `genesis.output` path from your config. Validate it with your
-chain binary:
+The output genesis is written to the `genesis.output` path from your config. Validate it with your chain binary:
 
 ```sh
 gaiad validate-genesis /path/to/output/genesis.json
@@ -363,10 +364,9 @@ Extra modules declared under `modules.extra` start with zero balance and whateve
 
 ## Embedding as a library
 
-The genesis engine is importable: `pkg/genesis` is standalone and **side-effect-limited** — its one
-global side effect is sealing the process-global `sdk.Config` bech32 prefixes on the first `Build` (call
-it once per process with a consistent prefix) — and `pkg/cli` exposes the commands for mounting into a
-host CLI.
+The genesis engine is importable: `pkg/genesis` is standalone and **side-effect-limited** — its one global side effect
+is sealing the process-global `sdk.Config` bech32 prefixes on the first `Build` (call it once per process with a
+consistent prefix) — and `pkg/cli` exposes the commands for mounting into a host CLI.
 
 ### Mount the CLI commands
 
@@ -374,13 +374,12 @@ host CLI.
 import "github.com/ny4rl4th0t3p/seedward-gentool/pkg/cli"
 
 for _, cmd := range cli.NewGenesisCommands() {
-    rootCmd.AddCommand(cmd)
+rootCmd.AddCommand(cmd)
 }
 ```
 
-The commands are self-contained: every flag they read (including `--config`) is declared on the
-commands themselves, and config state lives in a per-command viper instance — never the global
-singleton a host CLI may be using.
+The commands are self-contained: every flag they read (including `--config`) is declared on the commands themselves, and
+config state lives in a per-command viper instance — never the global singleton a host CLI may be using.
 
 > **Caveat:** the commands own a `--config` flag. The host CLI must not declare a persistent flag
 > of the same name — cobra resolves the collision silently in favor of these commands, so the
@@ -393,7 +392,7 @@ import "github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis"
 
 appGenesis, err := genesis.Build(ctx, baselineGenesisBytes, cfg, repos)
 if err != nil {
-    return err
+return err
 }
 err = appGenesis.SaveAs(outputPath)
 ```
@@ -401,20 +400,19 @@ err = appGenesis.SaveAs(outputPath)
 `Build` takes the raw baseline genesis bytes, a `genesis.ChainConfig`, and a `genesis.Repositories`
 bundle. CSV- and gentx-backed repository implementations live in `pkg/genesis/csv` and
 `pkg/genesis/gentx`, or you can supply your own. Only `InitialAccounts` and `Validators` are required;
-`Claims`, `Grants`, `AuthzGrants`, and `FeeAllowances` are optional — leave any of them `nil` to skip
-those records/modules.
+`Claims`, `Grants`, `AuthzGrants`, and `FeeAllowances` are optional — leave any of them `nil` to skip those
+records/modules.
 
 ---
 
 ## Memory & resource limits
 
-gentool builds the entire genesis **in memory** — it reads the baseline genesis into a byte
-buffer and holds the working state (auth accounts, bank balances, staking delegations) until the
-final writing. Peak RAM therefore scales with the number of accounts/claims/grants/validators, and a
-huge genesis can be multi-gigabyte.
+gentool builds the entire genesis **in memory** — it reads the baseline genesis into a byte buffer and holds the working
+state (auth accounts, bank balances, staking delegations) until the final writing. Peak RAM therefore scales with the
+number of accounts/claims/grants/validators, and a huge genesis can be multi-gigabyte.
 
-gentool does **not** try to predict or cap its own memory — bound it where it's actually enforced,
-at the container/cgroup level:
+gentool does **not** try to predict or cap its own memory — bound it where it's actually enforced, at the
+container/cgroup level:
 
 ```bash
 docker run --memory=4g -e GOMEMLIMIT=3600MiB gentool create ...
@@ -422,14 +420,13 @@ docker run --memory=4g -e GOMEMLIMIT=3600MiB gentool create ...
 ```
 
 - The **container memory limit** is the hard cap — exceed it and the kernel OOM-kills the process.
-- [`GOMEMLIMIT`](https://pkg.go.dev/runtime#hdr-Environment_Variables) (a Go runtime env var, read
-  automatically — no flag needed) is a **soft** target: as the heap approaches it, the GC runs more
-  aggressively to stay under the hard cap instead of tripping it. Set it to ~**90%** of the container
-  limit, leaving headroom for non-heap memory. It's pure Go, so `GOMEMLIMIT` governs essentially all
-  of its memory.
+- [`GOMEMLIMIT`](https://pkg.go.dev/runtime#hdr-Environment_Variables) (a Go runtime env var, read automatically — no
+  flag needed) is a **soft** target: as the heap approaches it, the GC runs more aggressively to stay under the hard cap
+  instead of tripping it. Set it to ~**90%** of the container limit, leaving headroom for non-heap memory. It's pure Go,
+  so `GOMEMLIMIT` governs essentially all of its memory.
 
-If a genesis genuinely needs more than the limit, expect an OOM kill (or, with `GOMEMLIMIT` set, heavy
-GC thrashing first) — give the job a bigger box.
+If a genesis genuinely needs more than the limit, expect an OOM kill (or, with `GOMEMLIMIT` set, heavy GC thrashing
+first) — give the job a bigger box.
 
 ---
 
